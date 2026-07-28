@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <title>AI Digit Classifier - Pro Pipeline</title>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background: #121212; color: white; display: flex; flex-direction: column; align-items: center; height: 100vh; margin: 0; padding-top: 20px; }
+        #grid { display: grid; grid-template-columns: repeat(28, 1fr); width: 400px; height: 400px; background: #000; border: 2px solid #333; }
+        .pixel { background: black; }
+        .controls { margin-top: 20px; }
+        button { padding: 10px 20px; cursor: pointer; background: #6200ee; color: white; border: none; border-radius: 5px; font-weight: bold; }
+        #resultado { margin-top: 20px; font-size: 1.5rem; color: #03dac6; }
+    </style>
+</head>
+<body>
+    <h1>Desenha um número (Pre-processed)</h1>
+    <div id="grid"></div>
+    <div class="controls">
+        <button onclick="clearGrid()">Limpar</button>
+        <button onclick="predict()">Prever</button>
+    </div>
+    <div id="resultado">Resultado: ?</div>
+
+    <script>
+        const gridElement = document.getElementById('grid');
+        let isDrawing = false;
+        // O nosso estado real são valores floats entre 0.0 e 1.0
+        let pixels = new Float32Array(28 * 28); 
+        let cells = [];
+
+        function createGrid() {
+            for (let i = 0; i < 28 * 28; i++) {
+                const cell = document.createElement('div');
+                cell.classList.add('pixel');
+                cell.dataset.index = i;
+                cell.addEventListener('mousedown', (e) => { isDrawing = true; paint(i); });
+                cell.addEventListener('mouseover', (e) => { if (isDrawing) paint(i); });
+                gridElement.appendChild(cell);
+            }
+            cells = document.querySelectorAll('.pixel');
+        }
+
+        // Pincel com gradiente (Anti-aliasing simples)
+        function paint(index) {
+            const row = Math.floor(index / 28);
+            const col = index % 28;
+            const radius = 2; // Tamanho do pincel
+
+            for (let i = -radius; i <= radius; i++) {
+                for (let j = -radius; j <= radius; j++) {
+                    const r = row + i;
+                    const c = col + j;
+                    if (r >= 0 && r < 28 && c >= 0 && c < 28) {
+                        const dist = Math.sqrt(i*i + j*j);
+                        const intensity = Math.max(0, 1 - dist / (radius + 1));
+                        const targetIndex = r * 28 + c;
+                        // Acumula a tinta (max)
+                        pixels[targetIndex] = Math.min(1.0, pixels[targetIndex] + intensity * 0.5);
+                        updatePixelStyle(targetIndex);
+                    }
+                }
+            }
+        }
+
+        function updatePixelStyle(index) {
+            const val = pixels[index];
+            cells[index].style.backgroundColor = `rgb(${val * 255}, ${val * 255}, ${val * 255})`;
+        }
+
+        function clearGrid() {
+            pixels.fill(0);
+            cells.forEach(c => c.style.backgroundColor = 'black');
+            document.getElementById('resultado').innerText = "Resultado: ?";
+        }
+
+        // Função de Centragem (Bounding Box)
+        function getCenteredData() {
+            let minR = 28, maxR = 0, minC = 28, maxC = 0;
+            let found = false;
+
+            // Encontrar limites do desenho
+            for(let i=0; i<28*28; i++) {
+                if(pixels[i] > 0.1) {
+                    found = true;
+                    const r = Math.floor(i / 28);
+                    const c = i % 28;
+                    if(r < minR) minR = r; if(r > maxR) maxR = r;
+                    if(c < minC) minC = c; if(c > maxC) maxC = c;
+                }
+            }
+            if(!found) return Array.from(pixels);
+
+            // Calcular offset
+            const centerR = (minR + maxR) / 2;
+            const centerC = (minC + maxC) / 2;
+            const offsetR = Math.floor(14 - centerR);
+            const offsetC = Math.floor(14 - centerC);
+
+            let newPixels = new Float32Array(28 * 28);
+            for(let i=0; i<28*28; i++) {
+                const r = Math.floor(i / 28) + offsetR;
+                const c = (i % 28) + offsetC;
+                if(r >= 0 && r < 28 && c >= 0 && c < 28) {
+                    newPixels[r * 28 + c] = pixels[i];
+                }
+            }
+            return Array.from(newPixels);
+        }
+
+        async function predict() {
+            const processedPixels = getCenteredData(); // Dados normalizados e centrados
+
+            try {
+                const response = await fetch('http://127.0.0.1:8000/predict', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ pixels: processedPixels })
+                });
+                
+                const data = await response.json();
+                const conf = (data.confianca * 100).toFixed(1);
+                document.getElementById('resultado').innerText = `Resultado: ${data.resultado} (${conf}% conf)`;
+            } catch (e) {
+                document.getElementById('resultado').innerText = "Erro de conexão";
+            }
+        }
+
+        window.addEventListener('mouseup', () => isDrawing = false);
+        createGrid();
+    </script>
+</body>
+</html>
