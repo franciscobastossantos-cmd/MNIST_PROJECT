@@ -31,24 +31,3 @@ Backend/API - Recebe desenho, chama modelo, devolve resultado
 Modelo - Já tens! (modelo_digitos.keras)
 
 
-Primeira Decisão Importante
-Antes de avançarmos, preciso que penses nisto:
-Como queres estruturar o backend?
-
-Opção A: Python (Flask/FastAPI) - Usa mesma linguagem do modelo, mais direto
-Opção B: Node.js - Se preferires JavaScript no backend também
-
-E para o frontend:
-
-Opção A: HTML/CSS/JavaScript puro - Mais simples, sem frameworks
-Opção B: React - Mais robusto, mas mais setup
-
-
-Pergunta Para Ti
-Já tens alguma experiência com:
-
-Criar APIs (Flask, FastAPI, Express)?
-Frontend (HTML/CSS/JS ou React)?
-
-Com base na tua resposta, definimos o stack e começamos pelo backend (é normalmente mais lógico começar por aí, porque testamos o modelo antes de te preocupares com UI bonita).
-Qual é a tua experiência atual?
